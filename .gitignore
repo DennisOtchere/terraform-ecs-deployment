@@ -1,0 +1,18 @@
+# Remove sensitive files and directories from version control
+# This includes Terraform state files, AWS credentials, and any local configuration files
+# Note: Terraform state files can contain sensitive information about your infrastructure
+*.tfstate
+*.tfstate.backup
+*.terraform/*
+.terraform.lock.hcl
+*.tfvars
+*.tfvars.json
+# AWS credentials file
+.aws/credentials
+.aws/config
+# Local environment variable files
+.env
+# Ignore any other files that may contain sensitive information or are not necessary for version control
+*.log
+*.tmp
+*.bak

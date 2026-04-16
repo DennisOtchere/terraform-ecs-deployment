@@ -12,6 +12,11 @@ jobs:
     name: "Deploy Infrastructure"
     runs-on: ubuntu-latest # The robot's operating system
     environment: dev
+    
+    # ADD THIS PERMISSIONS BLOCK HERE
+    permissions:
+      id-token: write # Required for requesting the JWT
+      contents: read  # Required for actions/checkout
 
     env:
       TF_VAR_project_name: ${{vars.PROJECT_NAME}}

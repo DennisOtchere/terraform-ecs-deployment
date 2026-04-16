@@ -28,8 +28,7 @@ resource "aws_iam_role" "github_actions_role" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
-            # Bypasses case-sensitivity while locking to your specific repository
-            "token.actions.githubusercontent.com:sub" = "repo:*/terraform-ecs-deployment:*"
+            "token.actions.githubusercontent.com:sub" = "repo:dennisotchere/terraform-ecs-deployment:*"
           }
         }
       }

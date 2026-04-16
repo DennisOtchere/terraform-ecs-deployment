@@ -11,6 +11,7 @@ jobs:
   terraform:
     name: "Deploy Infrastructure"
     runs-on: ubuntu-latest # The robot's operating system
+    environment: dev
 
     env:
       TF_VAR_project_name: ${{vars.PROJECT_NAME}}

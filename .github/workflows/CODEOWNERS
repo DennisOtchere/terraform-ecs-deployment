@@ -1,0 +1,3 @@
+# Require approval for any workflow changes
+.github/workflows/*  @DennisOtchere
+.github/CODEOWNERS  @DennisOtchere

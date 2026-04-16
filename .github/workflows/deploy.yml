@@ -1,0 +1,49 @@
+name: "Terraform CI/CD Pipeline"
+
+# 1. When should the robot run?
+on:
+  push:
+    branches:
+      - main # Runs every time you push to the main branch
+
+# 2. What should the robot do?
+jobs:
+  terraform:
+    name: "Deploy Infrastructure"
+    runs-on: ubuntu-latest # The robot's operating system
+
+    env:
+      TF_VAR_project_name: ${{vars.PROJECT_NAME}}
+      TF_VAR_environment: ${{vars.PROJECT_ENV}}
+      TF_VAR_vpc_cidr: ${{vars.VPC_CIDR}}
+      TF_VAR_container_image: ${{vars.CONTAINER_IMAGE}}
+      TF_VAR_app_port: ${{vars.APP_PORT}}
+      TF_VAR_availability_zones: ${{vars.AVAILABILITY_ZONES}}
+      TF_VAR_public_subnet_cidrs: ${{vars.PUBLIC_SUBNETS}}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0 
+
+      # THIS IS WHERE WE NEED TO SOLVE PUZZLE 2 (AWS LOGIN)
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: 
+          aws-region: us-east-1
+          # We need to give the robot the keys here!
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        run: terraform plan
+
+      - name: Terraform Apply
+        # The robot doesn't have a keyboard to type 'yes', so we use -auto-approve
+        run: terraform apply -auto-approve

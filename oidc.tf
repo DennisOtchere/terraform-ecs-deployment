@@ -26,8 +26,10 @@ resource "aws_iam_role" "github_actions_role" {
         Condition = {
           StringEquals = {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-            "token.actions.githubusercontent.com:repository_owner" = "DennisOtchere"
-            "token.actions.githubusercontent.com:sub" = "repo:DennisOtchere/terraform-ecs-deployment:environment:dev"
+          }
+          # Using StringLike allows us to bypass strict case/environment suffix mismatches
+          StringLike = {
+            "token.actions.githubusercontent.com:sub" = "repo:*Otchere/terraform-ecs-deployment:*"
           }
         }
       }

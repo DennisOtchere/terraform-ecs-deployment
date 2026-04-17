@@ -1,8 +1,8 @@
 # 1. The Trust Provider
 resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
-  
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
+
   # Official AWS-approved thumbprints for GitHub Actions OIDC
   thumbprint_list = [
     "6938fd4d98bab03faadb97b34396831e3780aea1",
@@ -37,7 +37,7 @@ resource "aws_iam_role" "github_actions_role" {
 # 3. The Permissions
 resource "aws_iam_role_policy" "terraform_deploy_policy" {
   name = "terraform-ecs-deploy-policy"
-  
+
   # Attaches this policy to the role we just fixed
   role = aws_iam_role.github_actions_role.id
 
@@ -50,13 +50,13 @@ resource "aws_iam_role_policy" "terraform_deploy_policy" {
           # Required for Terraform State Backend
           "s3:*",
           "dynamodb:*",
-          
+
           # Required for Infrastructure Provisioning
           "ec2:*",
           "ecs:*",
           "logs:*",
           "elasticloadbalancing:*",
-          
+
           # Required for ECS Task Roles
           "iam:PassRole",
           "iam:CreateRole",
@@ -64,7 +64,8 @@ resource "aws_iam_role_policy" "terraform_deploy_policy" {
           "iam:PutRolePolicy",
           "iam:DeleteRolePolicy",
           "iam:AttachRolePolicy",
-          "iam:DetachRolePolicy"
+          "iam:DetachRolePolicy",
+          "iam:*OpenIDConnectProvider*"
         ]
         Resource = "*"
       }

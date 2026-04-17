@@ -12,7 +12,7 @@ jobs:
     name: "Deploy Infrastructure"
     runs-on: ubuntu-latest # The robot's operating system
     environment: dev
-    
+
     # ADD THIS PERMISSIONS BLOCK HERE
     permissions:
       id-token: write # Required for requesting the JWT
@@ -36,13 +36,20 @@ jobs:
         with:
           terraform_version: 1.5.0 
 
+          #Grabbing the OIDC token and decoding it for debugging purposes
+      - name: Debug OIDC token
+        run: |
+            echo "${ACTIONS_ID_TOKEN_REQUEST_URL}"
+            TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \"${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" | jq -r '.value')
+             echo "$TOKEN" | cut -d "." -f2 | base64 -d | jq
+
       # THIS IS WHERE WE NEED TO SOLVE PUZZLE 2 (AWS LOGIN)
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
           role-to-assume: arn:aws:iam::866395943125:role/github-actions-terraform-role
           aws-region: us-east-1
-          # We need to give the robot the keys here!
+      
 
       - name: Terraform Init
         run: terraform init
@@ -53,3 +60,10 @@ jobs:
       - name: Terraform Apply
         # The robot doesn't have a keyboard to type 'yes', so we use -auto-approve
         run: terraform apply -auto-approve
+
+
+      - name: Debug OIDC token
+        run: |
+            echo "${ACTIONS_ID_TOKEN_REQUEST_URL}"
+            TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \"${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" | jq -r '.value')
+             echo "$TOKEN" | cut -d "." -f2 | base64 -d | jq

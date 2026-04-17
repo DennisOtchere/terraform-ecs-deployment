@@ -65,7 +65,12 @@ resource "aws_iam_role_policy" "terraform_deploy_policy" {
           "iam:DeleteRolePolicy",
           "iam:AttachRolePolicy",
           "iam:DetachRolePolicy",
-          "iam:*OpenIDConnectProvider*"
+          "iam:*OpenIDConnectProvider*",
+          "iam:GetRole",
+          "iam:GetRolePolicy",
+          "iam:ListInstanceProfilesForRole",
+          "iam:ListAttachedRolePolicies",
+          "iam:ListRolePolicies"
         ]
         Resource = "*"
       }

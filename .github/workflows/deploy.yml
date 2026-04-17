@@ -37,14 +37,14 @@ jobs:
           terraform_version: 1.5.0 
 
           #Grabbing the OIDC token and decoding it for debugging purposes
-      - name: Debug OIDC token
-        run: |
-            echo "${ACTIONS_ID_TOKEN_REQUEST_URL}"
-            TOKEN=$(curl -s \
-            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" \
-            | jq -r '.value')
-             echo "$TOKEN" | cut -d "." -f2 | base64 -d | jq
+      # - name: Debug OIDC token
+      #   run: |
+      #       echo "${ACTIONS_ID_TOKEN_REQUEST_URL}"
+      #       TOKEN=$(curl -s \
+      #       -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+      #       "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" \
+      #       | jq -r '.value')
+      #        echo "$TOKEN" | cut -d "." -f2 | base64 -d | jq 
 
       # THIS IS WHERE WE NEED TO SOLVE PUZZLE 2 (AWS LOGIN)
       - name: Configure AWS Credentials
@@ -63,10 +63,3 @@ jobs:
       - name: Terraform Apply
         # The robot doesn't have a keyboard to type 'yes', so we use -auto-approve
         run: terraform apply -auto-approve
-
-
-      - name: Debug OIDC token
-        run: |
-            echo "${ACTIONS_ID_TOKEN_REQUEST_URL}"
-            TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \"${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" | jq -r '.value')
-             echo "$TOKEN" | cut -d "." -f2 | base64 -d | jq

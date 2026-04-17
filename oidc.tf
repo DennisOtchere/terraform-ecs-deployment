@@ -28,7 +28,7 @@ resource "aws_iam_role" "github_actions_role" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:dennisotchere/terraform-ecs-deployment:*"
+            "token.actions.githubusercontent.com:sub" = "repo:DennisOtchere/terraform-ecs-deployment:environment:dev"
           }
         }
       }

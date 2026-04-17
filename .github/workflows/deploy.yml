@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest # The robot's operating system
     environment: dev
 
-    # ADD THIS PERMISSIONS BLOCK HERE
+    # ADD PERMISSIONS
     permissions:
       id-token: write # Required for requesting the JWT
       contents: read  # Required for actions/checkout
@@ -25,14 +25,14 @@ jobs:
       TF_VAR_container_image: ${{vars.CONTAINER_IMAGE}}
       TF_VAR_app_port: ${{vars.APP_PORT}}
       TF_VAR_availability_zones: ${{vars.AVAILABILITY_ZONES}}
-      TF_VAR_public_subnet_cidrs: ${{vars.PUBLIC_SUBNETS}}
+      TF_VAR_public_subnets: ${{vars.PUBLIC_SUBNETS}}
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.5.0 
 
@@ -48,7 +48,7 @@ jobs:
 
       # THIS IS WHERE WE NEED TO SOLVE PUZZLE 2 (AWS LOGIN)
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v3
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::866395943125:role/github-actions-terraform-role
           aws-region: us-east-1
@@ -58,7 +58,7 @@ jobs:
         run: terraform init
 
       - name: Terraform Plan
-        run: terraform plan
+        run: terraform plan -input=false
 
       - name: Terraform Apply
         # The robot doesn't have a keyboard to type 'yes', so we use -auto-approve

@@ -1,83 +1,199 @@
-# Project Guide: Secure AWS ECS Deployment via GitHub Actions OIDC
+# Secure AWS ECS Deployment via GitHub Actions OIDC
 
-This guide provides a detailed technical record of the end-to-end development of an automated deployment pipeline. It moves beyond a simple "how-to" by documenting the high-level concepts and the specific troubleshooting steps required to align GitHub Actions with AWS IAM security.
+Automated infrastructure deployment pipeline for AWS ECS using Terraform with GitHub Actions OIDC authentication.
 
-----
-## 1. Core Architecture Concepts
+---
 
-### OpenID Connect (OIDC) vs. Static Keys
-The primary goal was to move away from static `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` stored in GitHub Secrets. We used **OIDC**, which allows GitHub to prove its identity to AWS using a temporary JWT (JSON Web Token). 
-* **Security Benefit:** No long-lived credentials to rotate; tokens expire immediately after the job finishes.
+## Quick Start (5 Minutes)
+
+### Prerequisites
+
+- AWS Account with appropriate IAM permissions
+- Terraform installed locally (`>= 1.2`)
+- GitHub repository with admin access
+- AWS CLI configured with credentials
+
+### Setup Steps
+
+1. **Create S3 bucket for Terraform state:**
+
+   ```bash
+   aws s3 mb s3://my-unique-devops-project-state-storage --region us-east-1
+   ```
+
+2. **Deploy OIDC & IAM role locally:**
+
+   ```bash
+   terraform apply
+   ```
+
+   This creates the GitHub Actions trust relationship and the deployment role.
+
+3. **Add GitHub Environment variables** (`dev` environment):
+   - `PROJECT_NAME` = devops-learning
+   - `PROJECT_ENV` = dev
+   - `VPC_CIDR` = 10.0.0.0/16
+   - `AVAILABILITY_ZONES` = ["us-east-1a", "us-east-1b"]
+   - `PUBLIC_SUBNETS` = ["10.0.1.0/24", "10.0.2.0/24"]
+   - `CONTAINER_IMAGE` = nginxdemos/hello
+   - `APP_PORT` = 80
+
+4. **Push to main branch:**
+   ```bash
+   git push origin main
+   ```
+   GitHub Actions automatically deploys your infrastructure.
+
+---
+
+## Architecture Overview
+
+### OpenID Connect (OIDC)
+
+- **What:** GitHub proves its identity to AWS using temporary JWT tokens instead of static credentials.
+- **Why:** More secure—no long-lived keys to rotate; tokens expire immediately after the job.
 
 ### Terraform State Management
-We utilized an **S3 Backend** for state management. This ensures that the current state of infrastructure is shared between your local machine and the GitHub runner, preventing resource duplication or conflicts.
+
+- **What:** Infrastructure state stored in an S3 backend.
+- **Why:** Prevents conflicts between local and CI/CD deployments; keeps state synchronized.
 
 ---
 
-## 2. Part I: Bootstrapping the Trust Relationship (OIDC)
+## File Structure
 
-### The Trust Provider (`oidc.tf`)
-The first step was creating an OIDC Provider in IAM. 
-* **Lesson Learned:** Do not use dynamic certificate fetching for the thumbprint. AWS requires specific intermediate CA thumbprints for GitHub.
-* **Fix:** Hardcoded the official thumbprints: `6938fd4d98bab03faadb97b34396831e3780aea1` and `1c58a3a8518e8759bf075b76b750d4f2df264fcd`.
-
-### The IAM Role & Trust Policy
-We created a role named `github-actions-terraform-role`.
-* **The Case-Sensitivity Trap:** We discovered that while GitHub profile names might have capitals (e.g., `DennisOtchere`), the OIDC token sent to AWS is also case sensitive. 
-* **Lesson:** The `sub` condition in the IAM Trust Policy **must** be in the same case as the name given to the GitHub resource: `repo:DennisOtchere/terraform-ecs-deployment:*`.
-
----
-
-## 3. Part II: The GitHub Actions Workflow
-
-### Workflow Orchestration
-The workflow was configured to trigger on pushes to the `main` branch, targeting a GitHub Environment named `dev`.
-
-### Key Workflow Steps:
-1.  **OIDC Authentication:** Using `aws-actions/configure-aws-credentials@v3`.
-2.  **Terraform Init:** Initializing the S3 backend.
-3.  **Terraform Plan/Apply:** Using the `-input=false` flag.
-
-### Variable Mapping
-We mapped GitHub environment variables to Terraform using the `TF_VAR_` prefix.
-* **Mistake:** Misnaming a variable (e.g., using `TF_VAR_public_subnet_cidrs` when Terraform expected `TF_VAR_public_subnets`).
-* **Lesson:** Terraform will pause and wait for input if a variable is missing, causing the pipeline to hang indefinitely. Using `-input=false` forces an immediate error instead.
+| File                           | Purpose                                          |
+| ------------------------------ | ------------------------------------------------ |
+| `oidc.tf`                      | Defines OIDC provider, IAM role, and permissions |
+| `provider.tf`                  | AWS & TLS provider configuration                 |
+| `main.tf`                      | VPC, ECS cluster, task definition, and service   |
+| `variables.tf`                 | Input variable definitions                       |
+| `terraform.tfvars`             | Default variable values                          |
+| `terraform.tf`                 | Terraform version & backend configuration        |
+| `.github/workflows/deploy.yml` | CI/CD pipeline workflow                          |
 
 ---
 
-## 4. Part III: The Troubleshooting Log (Common Failures & Solutions)
+## Deployment Workflow
+
+1. **Trigger:** Push to `main` branch
+2. **OIDC Auth:** GitHub assumes the IAM role via OIDC token
+3. **Terraform Init:** Initializes S3 backend
+4. **Terraform Plan:** Reviews infrastructure changes
+5. **Terraform Apply:** Deploys resources automatically
+
+---
+
+## Troubleshooting & Common Issues
 
 ### Issue: `403 Access Denied` (AssumeRoleWithWebIdentity)
-* **Cause:** Incorrect thumbprints or case-sensitivity mismatch in the repository name/owner.
-* **Solution:** Use the `StringLike` operator in the IAM policy and ensure the repository owner name is matching case.
+
+**Causes:**
+
+- Incorrect OIDC thumbprints
+- Case-sensitivity mismatch in repository name (e.g., `DennisOtchere` vs `dennisotchere`)
+
+**Solution:**
+
+- Verify thumbprints: `6938fd4d98bab03faadb97b34396831e3780aea1` and `1c58a3a8518e8759bf075b76b750d4f2df264fcd`
+- Ensure `sub` condition in IAM Trust Policy matches exact repository owner case: `repo:DennisOtchere/terraform-ecs-deployment:environment:dev`
 
 ### Issue: `failed to get shared config profile, engineer`
-* **Cause:** Hardcoding `profile = "engineer"` in the `provider.tf`.
-* **Solution:** Remove the `profile` line. In CI/CD, the runner uses environment variables automatically. Locally, use `export AWS_PROFILE=engineer` before running Terraform.
+
+**Cause:** Hardcoded AWS profile in `provider.tf` not available in CI/CD environment.
+
+**Solution:**
+
+- Remove `profile = "engineer"` from `provider.tf`
+- CI/CD uses environment variables automatically
+- Local development: `export AWS_PROFILE=engineer` before running Terraform
 
 ### Issue: `invalid CIDR address: "10.0.0.0/16"`
-* **Cause:** In the GitHub UI, the user wrapped values in double quotes (`"`).
-* **Solution:** Remove quotes in the GitHub Secrets/Variables UI for standard strings. GitHub already treats them as strings.
+
+**Cause:** Variable values wrapped in quotes in GitHub UI (e.g., `"10.0.0.0/16"` instead of `10.0.0.0/16`).
+
+**Solution:**
+
+- Remove quotes from GitHub Secrets/Variables UI—GitHub treats them as strings automatically
+- Paste raw values only
+
+### Issue: `terraform plan` hangs indefinitely
+
+**Cause:** Missing Terraform variable causing Terraform to wait for user input.
+
+**Solution:**
+
+- Always use `-input=false` in CI/CD: `terraform plan -input=false`
+- Verify all `TF_VAR_*` environment variables are mapped correctly in `deploy.yml`
+- Check variable naming: e.g., `TF_VAR_public_subnets` (not `public_subnet_cidrs`)
 
 ### Issue: Missing IAM Permissions for State Refresh
-* **Cause:** The role could *create* resources but couldn't *read* them (e.g., `iam:GetRole`, `iam:GetOpenIDConnectProvider`).
-* **Solution:** Broadened the IAM Role Policy to include `iam:Get*` and `iam:List*` actions so Terraform can refresh the state before planning.
 
-### Issue: Local Terminal Credential Lockout
-* **Cause:** Terminal had `AWS_PROFILE` set to a name that didn't exist in the `~/.aws/credentials` file (searching for `[engineer]` instead of using `[default]`).
-* **Solution:** Run `unset AWS_PROFILE` to allow Terraform to fall back to the default credentials correctly.
+**Cause:** IAM role can create resources but cannot read them (missing `iam:GetRole`, `iam:GetOpenIDConnectProvider`).
+
+**Solution:**
+
+- Expand IAM Role Policy to include `iam:Get*` and `iam:List*` actions
+- Terraform needs read permissions to refresh state before planning
+
+### Issue: Local Terraform fails with credential error
+
+**Cause:** `AWS_PROFILE` environment variable set to non-existent profile (e.g., `[engineer]` not in `~/.aws/credentials`).
+
+**Solution:**
+
+```bash
+unset AWS_PROFILE
+```
+
+Terraform falls back to default credentials.
 
 ---
 
-## 5. Part IV: Final Operational Checklist
+## Essential Commands
 
-1.  **Local Bootstrap:** Run `terraform apply` locally once to create the OIDC provider and the role.
-2.  **Push Code:** Once the role exists, push code to GitHub.
-3.  **Monitor State:** Ensure the S3 backend is used by both local and remote runs to keep the `terraform.tfstate` synchronized.
-4.  **Least Privilege:** As the project matures, refine the `Resource = "*"` in the IAM policy to specific resource ARNs for better security.
+| Command                         | Purpose                                                 |
+| ------------------------------- | ------------------------------------------------------- |
+| `terraform init -reconfigure`   | Reinitialize backend (switch providers/credentials)     |
+| `terraform plan -input=false`   | Preview changes without user input (required for CI/CD) |
+| `terraform apply -auto-approve` | Deploy without confirmation (used in CI/CD)             |
+| `terraform destroy`             | Tear down all infrastructure                            |
+| `aws sts get-caller-identity`   | Verify current AWS credentials & account                |
+| `unset AWS_PROFILE`             | Clear AWS profile to use default credentials            |
 
 ---
-### Summary of Critical Commands
-* `terraform init -reconfigure`: Used when switching backends or credential strategies.
-* `terraform plan -input=false`: Essential for CI/CD to prevent hanging.
-* `aws sts get-caller-identity`: Best tool for verifying local credentials.
+
+## Key Implementation Details
+
+### IAM Trust Policy (Case-Sensitive)
+
+The OIDC trust relationship requires exact case matching:
+
+```hcl
+"token.actions.githubusercontent.com:sub" = "repo:DennisOtchere/terraform-ecs-deployment:environment:dev"
+```
+
+Repository owner name must match GitHub profile case exactly.
+
+### GitHub Actions Workflow Permissions
+
+```yaml
+permissions:
+  id-token: write # Required for OIDC JWT token
+  contents: read # Required for git checkout
+```
+
+### Terraform Variable Mapping
+
+GitHub environment variables are mapped to Terraform using `TF_VAR_` prefix:
+
+```yaml
+env:
+  TF_VAR_vpc_cidr: ${{vars.VPC_CIDR}}
+  TF_VAR_public_subnets: ${{vars.PUBLIC_SUBNETS}}
+```
+
+### Screenshots
+![ECS Cluster Dashboard](./img/img1.png)
+![ECS Task Dashboard](./img/img2.png)
+![inginx deployment](./img/img3.png)
